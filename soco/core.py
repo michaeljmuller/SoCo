@@ -1329,6 +1329,48 @@ class SoCo(_SocoSingletonBase):
         """
         return self.__get_radio_favorites(RADIO_STATIONS, start, max_items)
 
+    def get_favorites(self, start=0, max_items=100):
+        """ Gets sonos favorites
+
+        Arguments:
+        start -- Which number to start the retrieval from. Used for paging.
+        max_items -- The total number of results to return.
+
+        """
+
+        response = self.contentDirectory.Browse([
+            ('ObjectID', 'R:0/{0}'.format(2)),
+            ('BrowseFlag', 'BrowseDirectChildren'),
+            ('Filter', '*'),
+            ('StartingIndex', start),
+            ('RequestedCount', max_items),
+            ('SortCriteria', '')
+        ])
+        result = {}
+        favorites = []
+        results_xml = response['Result']
+
+        if results_xml != '':
+            # Favorites are returned in DIDL-Lite format
+            metadata = XML.fromstring(really_utf8(results_xml))
+
+            for item in metadata.findall(
+                    '{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}item'):
+                favorite = {}
+                favorite['title'] = item.findtext(
+                    '{http://purl.org/dc/elements/1.1/}title')
+                favorite['uri'] = item.findtext(
+                    '{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}res')
+                favorite['metadata'] = item.findtext(
+                    '{urn:schemas-rinconnetworks-com:metadata-1-0/}resMD')
+                favorites.append(favorite)
+
+        result['total'] = response['TotalMatches']
+        result['returned'] = len(favorites)
+        result['favorites'] = favorites
+
+        return result
+
     def __get_radio_favorites(self, favorite_type, start=0, max_items=100):
         """ Helper method for `get_favorite_radio_*` methods.
 
